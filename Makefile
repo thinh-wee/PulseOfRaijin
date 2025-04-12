@@ -39,9 +39,3 @@ build: $(SRC_FILES)
 clean:
 	@echo "Cleaning up..."
 	@rm -rf $(BIN_DIR)
-
-# Run webapp target
-run-webapp:
-	@echo "Running web application..."
-	@go run Examples/WebApp/main.go -dir=./Examples/WebApp/ -port=3000
-
