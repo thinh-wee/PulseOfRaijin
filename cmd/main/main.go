@@ -1,5 +1,11 @@
 package main
 
-func main() {
+import (
+	"app"
+)
 
+func init() {
+	app.Import()
 }
+
+func main() {}

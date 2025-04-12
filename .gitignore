@@ -18,6 +18,7 @@ bootstrap
 _build/
 bin/
 Common/
+local/
 
 # Compressed files
 *.zip
