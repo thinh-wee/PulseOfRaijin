@@ -142,7 +142,7 @@ func (p *pulseOfFraiji) Start() error {
 		// start a goroutine to send request
 		wg.Add(1)
 		go func() {
-			// TODO:  send request
+			// send request
 			resp, err := httpClient.Do(request)
 			if err != nil {
 				fmt.Println("error sending request:", err)
@@ -175,7 +175,7 @@ func (p *pulseOfFraiji) Start() error {
 	println("--------------------------------")
 	// print the send request time logs
 	for i, t := range sendRequestTimeLogs {
-		fmt.Printf("send request time (%d): %s\n", i+1, t.Format(time.RFC3339Nano))
+	fmt.Printf("send request time (%d): %s\n", i+1, t.Format(time.RFC3339Nano))
 	}
 
 	for range receiveRequestTimeLogs {
