@@ -2,7 +2,12 @@ package main
 
 import (
 	"app"
+	"app/internal/application"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
+	"time"
 )
 
 func init() {
@@ -40,10 +45,109 @@ func main() {
 	switch input {
 	case "1":
 		fmt.Printf("-> Execute a command: (%s)\n", input)
+		appN1()
+		return
 	case "2":
 		fmt.Printf("-> Execute a command: (%s)\n", input)
 	default:
 		fmt.Printf("-> Command `%s` is not defined.\nPlease enter a command from the list (1 >> 2).\n", input)
 	}
+}
 
+func appN1() {
+
+	type Config struct {
+		Method             string                 `json:"method"`
+		URL                string                 `json:"url"`
+		MaxLifeTime        time.Duration          `json:"maxLifeTime"`
+		RequestTimeout     time.Duration          `json:"requestTimeout"`
+		InsecureSkipVerify bool                   `json:"insecureSkipVerify"`
+		Headers            map[string]string      `json:"headers"`
+		Body               map[string]interface{} `json:"body"`
+	}
+
+	var (
+		inputWithJSON string
+		tps           int
+
+		config = Config{
+			Method:             "GET",
+			URL:                "https://www.google.com",
+			MaxLifeTime:        3 * time.Second,
+			RequestTimeout:     30 * time.Second,
+			InsecureSkipVerify: false,
+			Headers:            nil,
+			Body:               nil,
+		}
+	)
+
+	// read user input for json path
+	fmt.Print("Enter the path to file of JSON config (default is `config.json`): ")
+	fmt.Scanln(&inputWithJSON)
+	if inputWithJSON == "" {
+		inputWithJSON = "config.json"
+	}
+
+	// read json config
+	if b, err := os.ReadFile(inputWithJSON); err != nil {
+		// if file not found, create a new one
+		if os.IsNotExist(err) {
+			fmt.Println("File `config.json` not found, please create it first.")
+			// marshal default config
+			data, _ := json.Marshal(config)
+			// create a new file
+			if err := os.WriteFile(inputWithJSON, data, 0644); err != nil {
+				fmt.Println("Error:", err)
+			}
+		} else {
+			fmt.Println("Error:", err)
+			return
+		}
+	} else {
+		// parse json config
+		if err := json.Unmarshal(b, &config); err != nil {
+			fmt.Println("Error:", err)
+		}
+	}
+
+	// read user input for tps
+	fmt.Print("1000 Transactions Per Minute equals 1000/60 = 16.67 TPS; Please enter the TPS (default is 5): ")
+	fmt.Scanln(&tps)
+
+	// with config
+	impl := application.New(config.Method, config.URL)
+
+	// set max life time
+	if config.MaxLifeTime > time.Second {
+		impl.SetMaxLifeTime(config.MaxLifeTime)
+	}
+	// set request timeout
+	if config.RequestTimeout > time.Second {
+		impl.SetRequestTimeout(config.RequestTimeout)
+	}
+	// set insecure skip verify
+	if config.InsecureSkipVerify {
+		impl.SetInsecureSkipVerify(config.InsecureSkipVerify)
+	}
+	// set headers
+	if config.Headers != nil {
+		impl.SetHeaders(config.Headers)
+	}
+	// set body if json config has body
+	if config.Body != nil {
+		// marshal body
+		data, _ := json.Marshal(config.Body)
+		impl.SetBody(bytes.NewBuffer(data))
+		println("Body is already set:", string(data))
+	}
+
+	if tps == 0 {
+		// set default tps is 5 transactions per second
+		tps = 5
+	}
+
+	// run with tps custom
+	if err := impl.RunWithTPS(tps); err != nil {
+		fmt.Println("Error:", err)
+	}
 }
