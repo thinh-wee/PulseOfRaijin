@@ -30,12 +30,8 @@ func main() {
 
 	fmt.Println("Welcome to the Command Line Interface of Application\n" +
 		"\r\nSelect a command:" +
-		"\r\n1. Create a new project" +
-		"\r\n2. Create a new project" +
-		"\r\n3. Create a new project" +
-		"\r\n4. Create a new project" +
-		"\r\n5. Create a new project" +
-		"\r\n6. Create a new project",
+		"\r\n1. Start the application with a config file" +
+		"\r\n2. Do no thing",
 	)
 
 	var input string
@@ -49,6 +45,7 @@ func main() {
 		return
 	case "2":
 		fmt.Printf("-> Execute a command: (%s)\n", input)
+		return
 	default:
 		fmt.Printf("-> Command `%s` is not defined.\nPlease enter a command from the list (1 >> 2).\n", input)
 	}
