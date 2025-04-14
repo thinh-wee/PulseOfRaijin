@@ -3,7 +3,6 @@ package main
 import (
 	"app"
 	"app/internal/application"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -132,13 +131,18 @@ func appN1() {
 	}
 	// set headers
 	if config.Headers != nil {
-		impl.SetHeaders(config.Headers)
+		if err := impl.SetHeaders(config.Headers); err != nil {
+			fmt.Println("Error:", err)
+		}
 	}
 	// set body if json config has body
 	if config.Body != nil {
-		// marshal body
+		// marshal body to json
 		data, _ := json.Marshal(config.Body)
-		impl.SetBody(bytes.NewBuffer(data))
+		// set body
+		if err := impl.SetBody(data); err != nil {
+			fmt.Println("Error:", err)
+		}
 		println("Body is already set:", string(data))
 	}
 

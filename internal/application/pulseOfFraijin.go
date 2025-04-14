@@ -1,9 +1,9 @@
 package application
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -12,7 +12,7 @@ import (
 type pulseOfFraiji struct {
 	Method  string
 	URL     string
-	Body    io.Reader
+	Body    []byte
 	Headers map[string]string
 	// RequestsPerSecond is the number of requests per second, default is 5
 	RequestsPerSecond int
@@ -55,11 +55,17 @@ func (p *pulseOfFraiji) SetRequestTimeout(requestTimeout time.Duration) error {
 	return nil
 }
 
-func (p *pulseOfFraiji) SetBody(body io.Reader) error {
+func (p *pulseOfFraiji) SetBody(body []byte) error {
 	if body == nil {
 		return fmt.Errorf("body must not be nil or not set it")
 	}
-	p.Body = body
+
+	p.Body = make([]byte, len(body))
+	copy(p.Body[:], body[:])
+
+	if len(p.Body) != len(body) {
+		return fmt.Errorf("copy error")
+	}
 	return nil
 }
 
@@ -89,11 +95,6 @@ func (p *pulseOfFraiji) Start() error {
 
 		wg sync.WaitGroup
 	)
-
-	request, err := http.NewRequest(p.Method, p.URL, p.Body)
-	if err != nil {
-		return err
-	}
 
 	httpClient := &http.Client{
 		Timeout: p.RequestTimeout,
@@ -137,13 +138,20 @@ func (p *pulseOfFraiji) Start() error {
 		// start a goroutine to send request
 		wg.Add(1)
 		go func() {
+
+			defer wg.Done()
+
+			request, err := http.NewRequest(p.Method, p.URL, bytes.NewReader(p.Body))
+			if err != nil {
+				fmt.Println("error when make request")
+				return
+			}
 			// send request
 			resp, err := httpClient.Do(request)
 			if err != nil {
 				fmt.Println("error sending request:", err)
 				return
 			}
-			defer wg.Done()
 
 			// record the receive request time
 			receiveRequestTimeLogs = append(receiveRequestTimeLogs, time.Now())

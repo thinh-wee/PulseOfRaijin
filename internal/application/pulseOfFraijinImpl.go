@@ -1,7 +1,6 @@
 package application
 
 import (
-	"io"
 	"time"
 )
 
@@ -31,7 +30,7 @@ type PulseOfFraijinImpl interface {
 	// SetRequestTimeout sets the request timeout of the pulse of fraijin
 	SetRequestTimeout(requestTimeout time.Duration) error
 	// SetBody sets the body of the pulse of fraijin
-	SetBody(body io.Reader) error
+	SetBody(body []byte) error
 	// SetHeaders sets the headers of the pulse of fraijin
 	SetHeaders(headers map[string]string) error
 	// TODO: add a method to implement the pulse of fraijin
