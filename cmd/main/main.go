@@ -56,8 +56,8 @@ func appN1() {
 	type Config struct {
 		Method             string                 `json:"method"`
 		URL                string                 `json:"url"`
-		MaxLifeTime        time.Duration          `json:"maxLifeTime"`
-		RequestTimeout     time.Duration          `json:"requestTimeout"`
+		MaxLifeTime        string                 `json:"maxLifeTime"`
+		RequestTimeout     string                 `json:"requestTimeout"`
 		InsecureSkipVerify bool                   `json:"insecureSkipVerify"`
 		Headers            map[string]string      `json:"headers"`
 		Body               map[string]interface{} `json:"body"`
@@ -70,8 +70,8 @@ func appN1() {
 		config = Config{
 			Method:             "GET",
 			URL:                "https://www.google.com",
-			MaxLifeTime:        3 * time.Second,
-			RequestTimeout:     30 * time.Second,
+			MaxLifeTime:        "3s",
+			RequestTimeout:     "15s",
 			InsecureSkipVerify: false,
 			Headers:            nil,
 			Body:               nil,
@@ -115,12 +115,16 @@ func appN1() {
 	impl := application.New(config.Method, config.URL)
 
 	// set max life time
-	if config.MaxLifeTime > time.Second {
-		impl.SetMaxLifeTime(config.MaxLifeTime)
+	if d, err := time.ParseDuration(config.MaxLifeTime); err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		impl.SetMaxLifeTime(d)
 	}
 	// set request timeout
-	if config.RequestTimeout > time.Second {
-		impl.SetRequestTimeout(config.RequestTimeout)
+	if d, err := time.ParseDuration(config.RequestTimeout); err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		impl.SetRequestTimeout(d)
 	}
 	// set insecure skip verify
 	if config.InsecureSkipVerify {

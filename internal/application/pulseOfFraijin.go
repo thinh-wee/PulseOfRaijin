@@ -96,11 +96,6 @@ func (p *pulseOfFraiji) Start() error {
 	}
 
 	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
 		Timeout: p.RequestTimeout,
 	}
 
@@ -153,15 +148,11 @@ func (p *pulseOfFraiji) Start() error {
 			// record the receive request time
 			receiveRequestTimeLogs = append(receiveRequestTimeLogs, time.Now())
 
-			fmt.Println("[debug] response status:", resp.Status)
+			fmt.Printf("[debug] %.3fs, [async] response status: %s\n", time.Since(startTime).Seconds(), resp.Status)
 		}()
 	}
 
-	// wait for all requests to be sent and received
-	wg.Wait()
-
-	//
-
+	// print the configs variables
 	println("--------------------------------")
 	println("Configs variables:")
 	println("Method:", p.Method)
@@ -173,9 +164,14 @@ func (p *pulseOfFraiji) Start() error {
 	println("--------------------------------")
 	println("delayBetweenRequests:", delayBetweenRequests.String())
 	println("--------------------------------")
+
+	println("Waiting for all requests to be sent and received")
+	// wait for all requests to be sent and received
+	wg.Wait()
+
 	// print the send request time logs
 	for i, t := range sendRequestTimeLogs {
-	fmt.Printf("send request time (%d): %s\n", i+1, t.Format(time.RFC3339Nano))
+		fmt.Printf("send request time (%d): %s.%09d\n", i+1, t.Format(time.DateTime), t.Nanosecond())
 	}
 
 	for range receiveRequestTimeLogs {
