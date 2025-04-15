@@ -9,7 +9,7 @@ func New(method, url string) PulseOfFraijinImpl {
 		Method:             method,
 		URL:                url,
 		RequestsPerSecond:  5,
-		MaxLifeTime:        3 * time.Second,
+		MaxLifeTime:        30 * time.Second,
 		InsecureSkipVerify: false,
 		RequestTimeout:     30 * time.Second,
 	}

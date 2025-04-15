@@ -3,8 +3,10 @@ package application
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -140,29 +142,33 @@ func (p *pulseOfFraiji) Start() error {
 		go func() {
 
 			defer wg.Done()
+			t0 := time.Now()
 
 			request, err := http.NewRequest(p.Method, p.URL, bytes.NewReader(p.Body))
 			if err != nil {
-				fmt.Println("error when make request")
+				fmt.Printf("[error] %.3fs, when make request: %s\n", time.Since(startTime).Seconds(), err)
 				return
 			}
 			// send request
 			resp, err := httpClient.Do(request)
 			if err != nil {
-				fmt.Println("error sending request:", err)
+				fmt.Printf("[error] %.3fs, sending request: %s\n", time.Since(startTime).Seconds(), err)
 				return
 			}
 
 			// record the receive request time
 			receiveRequestTimeLogs = append(receiveRequestTimeLogs, time.Now())
 
-			fmt.Printf("[debug] %.3fs, [async] response status: %s\n", time.Since(startTime).Seconds(), resp.Status)
+			fmt.Printf("[debug] %.3fs, [async] response status: %s in %dms\n", time.Since(startTime).Seconds(), resp.Status, time.Since(t0).Milliseconds())
 		}()
 	}
-
+	println("Waiting for all requests to be sent and received")
+	// wait for all requests to be sent and received
+	wg.Wait()
+	time.Sleep(3 * time.Second)
 	// print the configs variables
 	println("--------------------------------")
-	println("Configs variables:")
+	println("Options info:")
 	println("Method:", p.Method)
 	println("URL:", p.URL)
 	println("RequestsPerSecond:", p.RequestsPerSecond)
@@ -173,17 +179,14 @@ func (p *pulseOfFraiji) Start() error {
 	println("delayBetweenRequests:", delayBetweenRequests.String())
 	println("--------------------------------")
 
-	println("Waiting for all requests to be sent and received")
-	// wait for all requests to be sent and received
-	wg.Wait()
+	// write the send request time logs
+	b, _ := json.Marshal(map[string]any{
+		"sendRequestTimeLogs":    sendRequestTimeLogs,
+		"receiveRequestTimeLogs": receiveRequestTimeLogs,
+	})
 
-	// print the send request time logs
-	for i, t := range sendRequestTimeLogs {
-		fmt.Printf("send request time (%d): %s.%09d\n", i+1, t.Format(time.DateTime), t.Nanosecond())
-	}
-
-	for range receiveRequestTimeLogs {
-		// TODO:  receive request
+	if err := os.WriteFile("report.json", b, 0664); err != nil {
+		fmt.Printf("can not write report file, error: %+v\n", err)
 	}
 
 	return nil
