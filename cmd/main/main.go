@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"net/http"
-	"os"
 	"time"
 )
 
@@ -15,107 +13,10 @@ var (
 	setConfigPath                     string
 	setMaxLifeTime, setRequestTimeout string
 	setMethod, setURL                 string
+	setReadFile                       string
 	setInsecureSkipVerify             = false
+	setVerbose                        = false
 )
-
-type Config struct {
-	Method             string                 `json:"method"`
-	URL                string                 `json:"url"`
-	MaxLifeTime        string                 `json:"maxLifeTime"`
-	RequestTimeout     string                 `json:"requestTimeout"`
-	InsecureSkipVerify bool                   `json:"insecureSkipVerify"`
-	Headers            map[string]string      `json:"headers"`
-	Body               map[string]interface{} `json:"body"`
-}
-
-func (cfg *Config) WithFlag() (ok bool) {
-	if setMaxLifeTime != "" {
-		// set max life time
-		if _, err := time.ParseDuration(setMaxLifeTime); err != nil {
-			fmt.Printf("flag --life-time invalid."+
-				" A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix,"+
-				" such as \"300ms\", \"-1.5h\" or \"2h45m\"."+
-				" Valid time units are \"ns\", \"us\" (or \"µs\"), \"ms\", \"s\", \"m\", \"h\".\n%s\n", err)
-		} else {
-			cfg.MaxLifeTime = setMaxLifeTime
-			ok = true
-		}
-	}
-	if setRequestTimeout != "" {
-		if _, err := time.ParseDuration(setRequestTimeout); err != nil {
-			fmt.Printf("flag --timeout invalid."+
-				" A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix,"+
-				" such as \"300ms\", \"-1.5h\" or \"2h45m\"."+
-				" Valid time units are \"ns\", \"us\" (or \"µs\"), \"ms\", \"s\", \"m\", \"h\".\n%s\n", err)
-		} else {
-			cfg.RequestTimeout = setRequestTimeout
-			ok = true
-		}
-	}
-	if setMethod != "" {
-		cfg.Method = setMethod
-		ok = true
-	}
-	if setURL != "" {
-		cfg.URL = setURL
-		ok = true
-	}
-	return
-}
-
-func loadConfig() (*Config, error) {
-	var (
-		inputWithJSON string
-		config        = Config{
-			Method:             http.MethodPost,
-			URL:                "http://localhost:8080/healthcheck",
-			RequestTimeout:     "30s",
-			MaxLifeTime:        "10s",
-			InsecureSkipVerify: false,
-			Headers:            nil,
-			Body:               nil,
-		}
-	)
-
-	if setConfigPath != "" {
-		inputWithJSON = setConfigPath
-	} else {
-		// read user input for json path
-		fmt.Print("Enter the path to file of JSON config (default is `config.json`): ")
-		fmt.Scanln(&inputWithJSON)
-		if inputWithJSON == "" {
-			inputWithJSON = "config.json"
-		}
-	}
-
-	// read json config
-	if b, err := os.ReadFile(inputWithJSON); err != nil {
-		// if file not found, create a new one
-		if os.IsNotExist(err) {
-			fmt.Printf("File `%s` not found, please create it first.\n", inputWithJSON)
-			if ok := config.WithFlag(); ok {
-				fmt.Println("Configuration applied by flags")
-			}
-			// marshal default config
-			data, _ := json.Marshal(config)
-			// create a new file
-			if err := os.WriteFile(inputWithJSON, data, 0644); err != nil {
-				fmt.Println("Error:", err)
-			}
-		} else {
-			return nil, err
-		}
-	} else {
-		// parse json config
-		if err := json.Unmarshal(b, &config); err != nil {
-			fmt.Println("Error:", err)
-		}
-		if ok := config.WithFlag(); ok {
-			fmt.Println("Configuration applied by flags")
-		}
-	}
-	return &config, nil
-}
 
 func init() {
 	flag.StringVar(&setConfigPath, "config", "", "set path to configuration file")
@@ -123,7 +24,9 @@ func init() {
 	flag.StringVar(&setRequestTimeout, "timeout", "", "set timeout to request")
 	flag.StringVar(&setMethod, "method", "", "set method")
 	flag.StringVar(&setURL, "url", "", "set URL endpoint")
+	flag.StringVar(&setReadFile, "file", "", "set file to body")
 	flag.BoolVar(&setInsecureSkipVerify, "insecure-skip", false, "skip insecure verify SSL")
+	flag.BoolVar(&setVerbose, "verbose", false, "print response")
 	flag.Parse()
 
 	app.Import()
@@ -188,7 +91,7 @@ func appPulseNperMinute() {
 	fmt.Scanln(&tpm)
 
 	// with config
-	impl := application.New(config.Method, config.URL)
+	impl := application.New(config.Method, config.URL, config.Verbose)
 
 	// set max life time
 	if d, err := time.ParseDuration(config.MaxLifeTime); err != nil {
@@ -213,9 +116,18 @@ func appPulseNperMinute() {
 		}
 	}
 	// set body if json config has body
-	if config.Body != nil {
+	switch b := config.Body.(type) {
+	case nil:
+		break
+	case []byte:
+		// set body
+		if err := impl.SetBody(b); err != nil {
+			fmt.Println("Error:", err)
+		}
+		println("Body is already set:", len(b), "bytes")
+	default:
 		// marshal body to json
-		data, _ := json.Marshal(config.Body)
+		data, _ := json.Marshal(b)
 		// set body
 		if err := impl.SetBody(data); err != nil {
 			fmt.Println("Error:", err)
@@ -250,7 +162,7 @@ func appPulseNperSecond() {
 	fmt.Scanln(&tps)
 
 	// with config
-	impl := application.New(config.Method, config.URL)
+	impl := application.New(config.Method, config.URL, config.Verbose)
 
 	// set max life time
 	if d, err := time.ParseDuration(config.MaxLifeTime); err != nil {
@@ -275,9 +187,18 @@ func appPulseNperSecond() {
 		}
 	}
 	// set body if json config has body
-	if config.Body != nil {
+	switch b := config.Body.(type) {
+	case nil:
+		break
+	case []byte:
+		// set body
+		if err := impl.SetBody(b); err != nil {
+			fmt.Println("Error:", err)
+		}
+		println("Body is already set:", len(b), "bytes")
+	default:
 		// marshal body to json
-		data, _ := json.Marshal(config.Body)
+		data, _ := json.Marshal(b)
 		// set body
 		if err := impl.SetBody(data); err != nil {
 			fmt.Println("Error:", err)

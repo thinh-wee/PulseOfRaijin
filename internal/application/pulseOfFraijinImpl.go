@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-func New(method, url string) PulseOfFraijinImpl {
+func New(method, url string, printResp bool) PulseOfFraijinImpl {
 	return &pulseOfFraiji{
 		Method:             method,
 		URL:                url,
@@ -12,6 +12,7 @@ func New(method, url string) PulseOfFraijinImpl {
 		MaxLifeTime:        30 * time.Second,
 		InsecureSkipVerify: false,
 		RequestTimeout:     30 * time.Second,
+		MustLogResp:        printResp,
 	}
 }
 

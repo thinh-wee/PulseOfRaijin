@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sync"
@@ -27,6 +28,8 @@ type pulseOfFraiji struct {
 
 	// RequestTimeout is the timeout of the request, default is 30 seconds
 	RequestTimeout time.Duration
+
+	MustLogResp bool
 }
 
 func (p *pulseOfFraiji) SetMaxLifeTime(maxLifeTime time.Duration) error {
@@ -159,7 +162,17 @@ func (p *pulseOfFraiji) Start() error {
 			// record the receive request time
 			receiveRequestTimeLogs = append(receiveRequestTimeLogs, time.Now())
 
-			fmt.Printf("[debug] %.3fs, [async] response status: %s in %dms\n", time.Since(startTime).Seconds(), resp.Status, time.Since(t0).Milliseconds())
+			fmt.Printf("[debug] %.3fs, [async] response status: %s in %dms - payload: %s\n",
+				time.Since(startTime).Seconds(), resp.Status, time.Since(t0).Milliseconds(), func() string {
+					if !p.MustLogResp {
+						return "OK"
+					}
+					b, err := io.ReadAll(resp.Body)
+					if err != nil {
+						return err.Error()
+					}
+					return string(b)
+				}())
 		}()
 	}
 	println("Waiting for all requests to be sent and received")

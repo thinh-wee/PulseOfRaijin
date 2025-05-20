@@ -52,6 +52,16 @@ build: $(SRC_FILES)
 			-o $(BIN_FILE) -trimpath $(SRC_FILES) || { echo "Failed to build application"; exit 1; }
 	@echo "Build application successfully"
 
+	# Build target
+	
+build_linux: $(SRC_FILES)
+	@echo "Building application..."
+	@mkdir -p $(BIN_DIR)
+	@export GOOS=linux GOARCH=amd64 CGO_ENABLED=0;\
+		go build -ldflags "-extldflags \"-static\" -s -w -X app.BuildUser=$(BUILD_USER)" \
+			-o $(BIN_DIR)/pulse_raijin -trimpath $(SRC_FILES) || { echo "Failed to build application"; exit 1; }
+	@echo "Build application successfully"
+
 # Clean target
 clean:
 	@echo "Cleaning up..."
