@@ -4,9 +4,18 @@ import (
 	"app"
 	"app/internal/application"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
+)
+
+var (
+	setConfigPath                     string
+	setMaxLifeTime, setRequestTimeout string
+	setMethod, setURL                 string
+	setInsecureSkipVerify             = false
 )
 
 type Config struct {
@@ -19,7 +28,104 @@ type Config struct {
 	Body               map[string]interface{} `json:"body"`
 }
 
+func (cfg *Config) WithFlag() (ok bool) {
+	if setMaxLifeTime != "" {
+		// set max life time
+		if _, err := time.ParseDuration(setMaxLifeTime); err != nil {
+			fmt.Printf("flag --life-time invalid."+
+				" A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix,"+
+				" such as \"300ms\", \"-1.5h\" or \"2h45m\"."+
+				" Valid time units are \"ns\", \"us\" (or \"µs\"), \"ms\", \"s\", \"m\", \"h\".\n%s\n", err)
+		} else {
+			cfg.MaxLifeTime = setMaxLifeTime
+			ok = true
+		}
+	}
+	if setRequestTimeout != "" {
+		if _, err := time.ParseDuration(setRequestTimeout); err != nil {
+			fmt.Printf("flag --timeout invalid."+
+				" A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix,"+
+				" such as \"300ms\", \"-1.5h\" or \"2h45m\"."+
+				" Valid time units are \"ns\", \"us\" (or \"µs\"), \"ms\", \"s\", \"m\", \"h\".\n%s\n", err)
+		} else {
+			cfg.RequestTimeout = setRequestTimeout
+			ok = true
+		}
+	}
+	if setMethod != "" {
+		cfg.Method = setMethod
+		ok = true
+	}
+	if setURL != "" {
+		cfg.URL = setURL
+		ok = true
+	}
+	return
+}
+
+func loadConfig() (*Config, error) {
+	var (
+		inputWithJSON string
+		config        = Config{
+			Method:             http.MethodPost,
+			URL:                "http://localhost:8080/healthcheck",
+			RequestTimeout:     "30s",
+			MaxLifeTime:        "10s",
+			InsecureSkipVerify: false,
+			Headers:            nil,
+			Body:               nil,
+		}
+	)
+
+	if setConfigPath != "" {
+		inputWithJSON = setConfigPath
+	} else {
+		// read user input for json path
+		fmt.Print("Enter the path to file of JSON config (default is `config.json`): ")
+		fmt.Scanln(&inputWithJSON)
+		if inputWithJSON == "" {
+			inputWithJSON = "config.json"
+		}
+	}
+
+	// read json config
+	if b, err := os.ReadFile(inputWithJSON); err != nil {
+		// if file not found, create a new one
+		if os.IsNotExist(err) {
+			fmt.Printf("File `%s` not found, please create it first.\n", inputWithJSON)
+			if ok := config.WithFlag(); ok {
+				fmt.Println("Configuration applied by flags")
+			}
+			// marshal default config
+			data, _ := json.Marshal(config)
+			// create a new file
+			if err := os.WriteFile(inputWithJSON, data, 0644); err != nil {
+				fmt.Println("Error:", err)
+			}
+		} else {
+			return nil, err
+		}
+	} else {
+		// parse json config
+		if err := json.Unmarshal(b, &config); err != nil {
+			fmt.Println("Error:", err)
+		}
+		if ok := config.WithFlag(); ok {
+			fmt.Println("Configuration applied by flags")
+		}
+	}
+	return &config, nil
+}
+
 func init() {
+	flag.StringVar(&setConfigPath, "config", "", "set path to configuration file")
+	flag.StringVar(&setMaxLifeTime, "life-time", "", "set max life time")
+	flag.StringVar(&setRequestTimeout, "timeout", "", "set timeout to request")
+	flag.StringVar(&setMethod, "method", "", "set method")
+	flag.StringVar(&setURL, "url", "", "set URL endpoint")
+	flag.BoolVar(&setInsecureSkipVerify, "insecure-skip", false, "skip insecure verify SSL")
+	flag.Parse()
+
 	app.Import()
 }
 
@@ -67,48 +173,14 @@ func main() {
 }
 
 func appPulseNperMinute() {
+
 	var (
-		inputWithJSON string
-		tpm           int
-
-		config = Config{
-			Method:             "POST",
-			URL:                "http://192.168.1.225:8082/face/verifybiocustomer",
-			RequestTimeout:     "30s",
-			MaxLifeTime:        "10s",
-			InsecureSkipVerify: false,
-			Headers:            nil,
-			Body:               nil,
-		}
+		tpm int
 	)
-
-	// read user input for json path
-	fmt.Print("Enter the path to file of JSON config (default is `config.json`): ")
-	fmt.Scanln(&inputWithJSON)
-	if inputWithJSON == "" {
-		inputWithJSON = "config.json"
-	}
-
-	// read json config
-	if b, err := os.ReadFile(inputWithJSON); err != nil {
-		// if file not found, create a new one
-		if os.IsNotExist(err) {
-			fmt.Println("File `config.json` not found, please create it first.")
-			// marshal default config
-			data, _ := json.Marshal(config)
-			// create a new file
-			if err := os.WriteFile(inputWithJSON, data, 0644); err != nil {
-				fmt.Println("Error:", err)
-			}
-		} else {
-			fmt.Println("Error:", err)
-			return
-		}
-	} else {
-		// parse json config
-		if err := json.Unmarshal(b, &config); err != nil {
-			fmt.Println("Error:", err)
-		}
+	config, err := loadConfig()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
 	}
 
 	// read user input for tps
@@ -165,47 +237,12 @@ func appPulseNperMinute() {
 func appPulseNperSecond() {
 
 	var (
-		inputWithJSON string
-		tps           int
-
-		config = Config{
-			Method:             "POST",
-			URL:                "http://192.168.1.225:8082/face/verifybiocustomer",
-			RequestTimeout:     "30s",
-			MaxLifeTime:        "10s",
-			InsecureSkipVerify: false,
-			Headers:            nil,
-			Body:               nil,
-		}
+		tps int
 	)
-
-	// read user input for json path
-	fmt.Print("Enter the path to file of JSON config (default is `config.json`): ")
-	fmt.Scanln(&inputWithJSON)
-	if inputWithJSON == "" {
-		inputWithJSON = "config.json"
-	}
-
-	// read json config
-	if b, err := os.ReadFile(inputWithJSON); err != nil {
-		// if file not found, create a new one
-		if os.IsNotExist(err) {
-			fmt.Println("File `config.json` not found, please create it first.")
-			// marshal default config
-			data, _ := json.Marshal(config)
-			// create a new file
-			if err := os.WriteFile(inputWithJSON, data, 0644); err != nil {
-				fmt.Println("Error:", err)
-			}
-		} else {
-			fmt.Println("Error:", err)
-			return
-		}
-	} else {
-		// parse json config
-		if err := json.Unmarshal(b, &config); err != nil {
-			fmt.Println("Error:", err)
-		}
+	config, err := loadConfig()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
 	}
 
 	// read user input for tps
