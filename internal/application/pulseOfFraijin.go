@@ -98,6 +98,8 @@ func (p *pulseOfFraiji) Start() error {
 		sendRequestTimeLogs    []time.Time
 		receiveRequestTimeLogs []time.Time
 
+		countSucceed, countFailed int
+
 		wg sync.WaitGroup
 	)
 
@@ -155,12 +157,14 @@ func (p *pulseOfFraiji) Start() error {
 			// send request
 			resp, err := httpClient.Do(request)
 			if err != nil {
+				countFailed++
 				fmt.Printf("[error] %.3fs, sending request: %s\n", time.Since(startTime).Seconds(), err)
 				return
 			}
 
 			// record the receive request time
 			receiveRequestTimeLogs = append(receiveRequestTimeLogs, time.Now())
+			countSucceed++
 
 			fmt.Printf("[debug] %.3fs, [async] response status: %s in %dms - payload: %s\n",
 				time.Since(startTime).Seconds(), resp.Status, time.Since(t0).Milliseconds(), func() string {
@@ -190,6 +194,9 @@ func (p *pulseOfFraiji) Start() error {
 	println("RequestTimeout:", p.RequestTimeout.String())
 	println("--------------------------------")
 	println("delayBetweenRequests:", delayBetweenRequests.String())
+	println("")
+	println("CountRequestSucceed:", countSucceed)
+	println("CountRequestFailed:", countFailed)
 	println("--------------------------------")
 
 	// write the send request time logs
